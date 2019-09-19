@@ -60,7 +60,8 @@ public class BigQueryTable extends BaseBeamTable implements Serializable {
   private static final Logger LOGGER = LoggerFactory.getLogger(BigQueryTable.class);
   @VisibleForTesting final Method method;
 
-  BigQueryTable(Table table, BigQueryUtils.ConversionOptions options) {
+  BigQueryTable(Table table, BigQueryUtils.ConversionOptions options)
+      throws InvalidPropertyException {
     super(table.getSchema());
     this.conversionOptions = options;
     this.bqLocation = table.getLocation();
