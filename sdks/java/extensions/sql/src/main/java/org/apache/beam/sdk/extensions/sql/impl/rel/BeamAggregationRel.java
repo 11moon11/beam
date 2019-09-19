@@ -82,6 +82,7 @@ public class BeamAggregationRel extends Aggregate implements BeamRelNode {
 
     this.windowFn = windowFn;
     this.windowFieldIndex = windowFieldIndex;
+    this.getRowType();
   }
 
   @Override
