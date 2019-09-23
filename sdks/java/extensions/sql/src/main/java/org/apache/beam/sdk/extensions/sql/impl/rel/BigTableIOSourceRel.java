@@ -17,10 +17,10 @@
  */
 package org.apache.beam.sdk.extensions.sql.impl.rel;
 
-import static org.apache.beam.vendor.calcite.v1_20_0.com.google.common.base.Preconditions.checkArgument;
+import static org.apache.beam.vendor.guava.v26_0_jre.com.google.common.base.Preconditions.checkArgument;
 
 import java.util.Map;
-import org.apache.beam.sdk.extensions.sql.BeamSqlTable;
+import org.apache.beam.sdk.extensions.sql.meta.provider.bigquery.BigQueryTable;
 import org.apache.beam.sdk.extensions.sql.impl.BeamCalciteTable;
 import org.apache.beam.sdk.extensions.sql.impl.BeamTableStatistics;
 import org.apache.beam.sdk.extensions.sql.impl.planner.BeamCostModel;
@@ -29,24 +29,24 @@ import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionList;
 import org.apache.beam.sdk.values.Row;
-import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.plan.RelOptCluster;
-import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.plan.RelOptCost;
-import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.plan.RelOptPlanner;
-import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.plan.RelOptTable;
-import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.rel.core.TableScan;
-import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.rel.metadata.RelMetadataQuery;
+import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.plan.RelOptCost;
+import org.apache.calcite.plan.RelOptPlanner;
+import org.apache.calcite.plan.RelOptTable;
+import org.apache.calcite.rel.core.TableScan;
+import org.apache.calcite.rel.metadata.RelMetadataQuery;
 
 /** BeamRelNode to replace a {@code TableScan} node. */
-public class BeamIOSourceRel extends TableScan implements BeamRelNode {
+public class BigTableIOSourceRel extends TableScan implements BeamRelNode {
   public static final double CONSTANT_WINDOW_SIZE = 10d;
-  private final BeamSqlTable beamTable;
+  private final BigQueryTable beamTable;
   private final BeamCalciteTable calciteTable;
   private final Map<String, String> pipelineOptions;
 
-  public BeamIOSourceRel(
+  public BigTableIOSourceRel(
       RelOptCluster cluster,
       RelOptTable table,
-      BeamSqlTable beamTable,
+      BigQueryTable beamTable,
       Map<String, String> pipelineOptions,
       BeamCalciteTable calciteTable) {
     super(cluster, cluster.traitSetOf(BeamLogicalConvention.INSTANCE), table);
@@ -57,12 +57,13 @@ public class BeamIOSourceRel extends TableScan implements BeamRelNode {
 
   @Override
   public double estimateRowCount(RelMetadataQuery mq) {
-    BeamTableStatistics rowCountStatistics = calciteTable.getStatistic();
+    /*BeamTableStatistics rowCountStatistics = calciteTable.getStatistic();
     if (beamTable.isBounded() == PCollection.IsBounded.BOUNDED) {
       return rowCountStatistics.getRowCount();
     } else {
       return rowCountStatistics.getRate();
-    }
+    }*/
+    return 1;
   }
 
   @Override
@@ -92,7 +93,7 @@ public class BeamIOSourceRel extends TableScan implements BeamRelNode {
       checkArgument(
           input.size() == 0,
           "Should not have received input for %s: %s",
-          BeamIOSourceRel.class.getSimpleName(),
+          BigTableIOSourceRel.class.getSimpleName(),
           input);
       return beamTable.buildIOReader(input.getPipeline().begin());
     }
@@ -112,12 +113,8 @@ public class BeamIOSourceRel extends TableScan implements BeamRelNode {
     return BeamCostModel.FACTORY.makeCost(estimates.getRowCount(), estimates.getRate());
   }
 
-  public BeamSqlTable getBeamSqlTable() {
+  public BigQueryTable getBeamSqlTable() {
     return beamTable;
-  }
-
-  public BeamCalciteTable getCalciteTable() {
-    return calciteTable;
   }
 
   @Override

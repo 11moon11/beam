@@ -20,6 +20,7 @@ package org.apache.beam.sdk.extensions.sql.meta.provider.bigquery;
 import java.io.IOException;
 import java.io.Serializable;
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -48,9 +49,10 @@ import org.slf4j.LoggerFactory;
  * support being a source.
  */
 @Experimental
-class BigQueryTable extends BaseBeamTable implements Serializable {
+public class BigQueryTable extends BaseBeamTable implements Serializable {
   @VisibleForTesting static final String METHOD_PROPERTY = "method";
   @VisibleForTesting final String bqLocation;
+  private List<String> selectedFields;
   private final ConversionOptions conversionOptions;
   private BeamTableStatistics rowCountStatistics = null;
   private static final Logger LOGGER = LoggerFactory.getLogger(BigQueryTable.class);
@@ -60,6 +62,7 @@ class BigQueryTable extends BaseBeamTable implements Serializable {
     super(table.getSchema());
     this.conversionOptions = options;
     this.bqLocation = table.getLocation();
+    this.selectedFields = new ArrayList<>();
 
     if (table.getProperties().containsKey(METHOD_PROPERTY)) {
       List<String> validMethods =
@@ -89,6 +92,14 @@ class BigQueryTable extends BaseBeamTable implements Serializable {
     LOGGER.info("BigQuery method is set to: " + method.toString());
   }
 
+  public void setMethod(Method method) {
+    this.method = method;
+  }
+
+  public void setSelectedFields(List<String> selectedFields) {
+    this.selectedFields = selectedFields;
+  }
+
   @Override
   public BeamTableStatistics getTableStatistics(PipelineOptions options) {
 
@@ -113,6 +124,7 @@ class BigQueryTable extends BaseBeamTable implements Serializable {
                     record ->
                         BigQueryUtils.toBeamRow(record.getRecord(), getSchema(), conversionOptions))
                 .withMethod(method)
+                //.withSelectedFields(selectedFields)
                 .from(bqLocation)
                 .withCoder(SchemaCoder.of(getSchema())))
         .setRowSchema(getSchema());
