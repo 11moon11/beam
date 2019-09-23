@@ -35,6 +35,7 @@ import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
+import org.apache.calcite.rel.type.RelDataType;
 
 /** BeamRelNode to replace a {@code TableScan} node. */
 public class BigTableIOSourceRel extends TableScan implements BeamRelNode {
@@ -53,6 +54,10 @@ public class BigTableIOSourceRel extends TableScan implements BeamRelNode {
     this.beamTable = beamTable;
     this.calciteTable = calciteTable;
     this.pipelineOptions = pipelineOptions;
+  }
+
+  public void setRowType(RelDataType rowType) {
+    this.rowType = rowType;
   }
 
   @Override
