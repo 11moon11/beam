@@ -16,13 +16,18 @@ import org.apache.calcite.rel.core.RelFactories;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rel.type.RelRecordType;
 import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.rex.RexProgramBuilder;
 import org.apache.calcite.rex.RexSimplify;
+import org.apache.calcite.sql.type.BasicSqlType;
+import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.tools.RelBuilderFactory;
 import org.apache.calcite.util.Pair;
@@ -84,8 +89,29 @@ public class BeamBigQueryProjectRule extends RelOptRule {
     RelDataType calcInput = relDataTypeBuilder.build();
     bigTableIOSourceRel.setRowType(calcInput);
     // Can quit here if Calc does nothing else
-    call.transformTo(bigTableIOSourceRel);
+    //call.transformTo(bigTableIOSourceRel);
 
-    
+    // When calc does something, need to modify inputs of the program
+    final Pair<ImmutableList<RexNode>, ImmutableList<RexNode>> projectFilter = program.split();
+    /*if (projectFilter.right.size() == 0) {
+      call.transformTo(bigTableIOSourceRel);
+      return;
+    }*/
+
+    List<RexNode> list = program.getExprList();
+    SqlTypeFactoryImpl sqlTypeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RexNode rexNode = new RexInputRef(0, sqlTypeFactory.createTypeWithNullability(sqlTypeFactory.createSqlType(SqlTypeName.VARCHAR), true));
+
+    Calc result = calc.copy(calc.getTraitSet(), bigTableIOSourceRel, RexProgram.create(calcInput, ImmutableList.of(rexNode), program.getCondition(), program.getOutputRowType(), calc.getCluster().getRexBuilder()));
+
+    // relBuilder should store the rest of the ops performed in Calc, such as filter
+    final RelBuilder relBuilder = call.builder();
+    relBuilder.push(bigTableIOSourceRel); // Used to be: calc.getInput()
+    relBuilder.filter(projectFilter.right);
+    //relBuilder.project(projectFilter.left);
+    RelNode remainingCalc = relBuilder.build();
+
+    //call.getPlanner().setImportance(calc, 0.0);
+    call.transformTo(result);
   }
 }
