@@ -68,7 +68,7 @@ public class BigTableIOSourceRel extends TableScan implements BeamRelNode {
     } else {
       return rowCountStatistics.getRate();
     }*/
-    return 1;
+    return 0.0000000000001;
   }
 
   @Override

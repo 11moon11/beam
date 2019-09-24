@@ -117,17 +117,30 @@ public class BigQueryTable extends BaseBeamTable implements Serializable {
 
   @Override
   public PCollection<Row> buildIOReader(PBegin begin) {
-    return begin
-        .apply(
-            "Read Input BQ Rows",
-            BigQueryIO.read(
-                    record ->
-                        BigQueryUtils.toBeamRow(record.getRecord(), getSchema(), conversionOptions))
-                .withMethod(method)
-                //.withSelectedFields(selectedFields)
-                .from(bqLocation)
-                .withCoder(SchemaCoder.of(getSchema())))
-        .setRowSchema(getSchema());
+    if(selectedFields == null || selectedFields.size() == 0) {
+      return begin
+          .apply(
+              "Read Input BQ Rows",
+              BigQueryIO.read(
+                  record ->
+                      BigQueryUtils.toBeamRow(record.getRecord(), getSchema(), conversionOptions))
+                  .withMethod(method)
+                  .from(bqLocation)
+                  .withCoder(SchemaCoder.of(getSchema())))
+          .setRowSchema(getSchema());
+    } else {
+      return begin
+          .apply(
+              "Read Input BQ Rows",
+              BigQueryIO.read(
+                  record ->
+                      BigQueryUtils.toBeamRow(record.getRecord(), getSchema(), conversionOptions))
+                  .withMethod(method)
+                  .withSelectedFields(selectedFields)
+                  .from(bqLocation)
+                  .withCoder(SchemaCoder.of(getSchema())))
+          .setRowSchema(getSchema());
+    }
   }
 
   @Override

@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.beam.sdk.extensions.sql.BeamSqlTable;
+import org.apache.beam.sdk.extensions.sql.impl.rel.BeamCalcRel;
 import org.apache.beam.sdk.extensions.sql.impl.rel.BigTableIOSourceRel;
 import org.apache.beam.sdk.extensions.sql.meta.provider.bigquery.*;
 import org.apache.beam.sdk.extensions.sql.impl.rel.BeamIOSourceRel;
@@ -13,6 +14,7 @@ import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Calc;
 import org.apache.calcite.rel.core.RelFactories;
+import org.apache.calcite.rel.logical.LogicalCalc;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -42,7 +44,7 @@ public class BeamBigQueryProjectRule extends RelOptRule {
 
   BeamBigQueryProjectRule(RelBuilderFactory relBuilderFactory) {
     super(operand(
-            Calc.class,
+            BeamCalcRel.class,
             operand(BeamIOSourceRel.class, any())),
         relBuilderFactory, null);
   }
@@ -88,7 +90,7 @@ public class BeamBigQueryProjectRule extends RelOptRule {
 
     RelDataType calcInput = relDataTypeBuilder.build();
     bigTableIOSourceRel.setRowType(calcInput);
-    // Can quit here if Calc does nothing else
+    // Can quit here if Calc does nothing else (works as intended)
     //call.transformTo(bigTableIOSourceRel);
 
     // When calc does something, need to modify inputs of the program
@@ -102,16 +104,10 @@ public class BeamBigQueryProjectRule extends RelOptRule {
     SqlTypeFactoryImpl sqlTypeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
     RexNode rexNode = new RexInputRef(0, sqlTypeFactory.createTypeWithNullability(sqlTypeFactory.createSqlType(SqlTypeName.VARCHAR), true));
 
-    Calc result = calc.copy(calc.getTraitSet(), bigTableIOSourceRel, RexProgram.create(calcInput, ImmutableList.of(rexNode), program.getCondition(), program.getOutputRowType(), calc.getCluster().getRexBuilder()));
+    // TODO: Remove project from the program, since it is being moved it IO
+    final Calc result = calc.copy(calc.getTraitSet(), bigTableIOSourceRel, RexProgram.create(calcInput, ImmutableList.of(rexNode), program.getCondition(), program.getOutputRowType(), calc.getCluster().getRexBuilder()));
 
-    // relBuilder should store the rest of the ops performed in Calc, such as filter
-    final RelBuilder relBuilder = call.builder();
-    relBuilder.push(bigTableIOSourceRel); // Used to be: calc.getInput()
-    relBuilder.filter(projectFilter.right);
-    //relBuilder.project(projectFilter.left);
-    RelNode remainingCalc = relBuilder.build();
-
-    //call.getPlanner().setImportance(calc, 0.0);
+    // Does not have good enough cost to be chosen.
     call.transformTo(result);
   }
 }
