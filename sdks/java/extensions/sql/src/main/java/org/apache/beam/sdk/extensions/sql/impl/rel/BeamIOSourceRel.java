@@ -49,7 +49,7 @@ public class BeamIOSourceRel extends TableScan implements BeamRelNode {
       BeamSqlTable beamTable,
       Map<String, String> pipelineOptions,
       BeamCalciteTable calciteTable) {
-    super(cluster, cluster.traitSetOf(BeamLogicalConvention.INSTANCE), table);
+    super(cluster, cluster.traitSetOf(), table);
     this.beamTable = beamTable;
     this.calciteTable = calciteTable;
     this.pipelineOptions = pipelineOptions;

@@ -15,8 +15,10 @@ import org.apache.beam.sdk.extensions.sql.impl.rel.BeamIOSourceRel;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.TypedRead.Method;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
+import org.apache.calcite.plan.volcano.RelSubset;
 import org.apache.calcite.rel.core.Calc;
 import org.apache.calcite.rel.core.RelFactories;
+import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
@@ -42,7 +44,7 @@ public class BeamBigQueryProjectRule extends RelOptRule {
 
   BeamBigQueryProjectRule(RelBuilderFactory relBuilderFactory) {
     super(operand(
-            BeamCalcRel.class,
+            Calc.class,
             operand(BeamIOSourceRel.class, any())),
         relBuilderFactory, null);
   }
@@ -75,10 +77,12 @@ public class BeamBigQueryProjectRule extends RelOptRule {
     Calc result = constructNewCalc(calc, bigQueryIOSourceRel);
 
     // Does not have good enough cost to be chosen.
-    call.getPlanner().setImportance(call.getPlanner().getRoot(), 0);
-    call.getPlanner().setRoot(result);
-    call.getPlanner().setImportance(result, 1);
-    //call.transformTo(result);
+    call.transformTo(result);
+    //result.metadata(NodeStatsMetadata.class, RelMetadataQuery.instance()).getNodeStats()
+    //call.getMetadataQuery().metadataProvider.apply(result, )
+    //call.getPlanner().setImportance(call.getPlanner().getRoot(), 0);
+    //call.getPlanner().setRoot(result);
+    //call.getPlanner().setImportance(result, 1);
   }
 
   /**
