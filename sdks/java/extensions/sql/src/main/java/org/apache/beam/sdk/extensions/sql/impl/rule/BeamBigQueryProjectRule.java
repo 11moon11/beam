@@ -4,9 +4,11 @@ import com.google.common.collect.ImmutableList;
 import com.sun.istack.Nullable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
+import java.util.Set;
 import org.apache.beam.sdk.extensions.sql.BeamSqlTable;
 import org.apache.beam.sdk.extensions.sql.impl.rel.BeamCalcRel;
 import org.apache.beam.sdk.extensions.sql.impl.rel.BigQueryIOSourceRel;
@@ -94,14 +96,17 @@ public class BeamBigQueryProjectRule extends RelOptRule {
    */
   private RelDataType newRowTypeForBigQuery(Calc calc, List<String> selectedFields) {
     RexProgram program = calc.getProgram();
+    Set<String> requiredFields = new HashSet<>();
     RelDataTypeFactory.Builder relDataTypeBuilder = calc.getCluster().getTypeFactory().builder();
 
     // All projects still need to be present in an output
     List<Pair<RexLocalRef, String>> namedProjectList = program.getNamedProjects();
     for (Pair<RexLocalRef, String> namedProject : namedProjectList) {
       // TODO: Right now: assumes all projects are simple (ex: RexInputRef). Need to handle projection of complex Rex (ex: RexCall)
-      relDataTypeBuilder.add(namedProject.right, namedProject.left.getType());
-      selectedFields.add(namedProject.right);
+      if (!requiredFields.contains(namedProject.right)) {
+        relDataTypeBuilder.add(namedProject.right, namedProject.left.getType());
+        requiredFields.add(namedProject.right);
+      }
     }
 
     // TODO: Modify to do filter push-down
@@ -125,12 +130,15 @@ public class BeamBigQueryProjectRule extends RelOptRule {
         } else if (condNode instanceof RexInputRef) {
           String fieldName = calc.getInput().getRowType().getFieldList()
               .get(((RexInputRef) condNode).getIndex()).getName();
-          relDataTypeBuilder.add(fieldName, condNode.getType());
-          selectedFields.add(fieldName);
+          if (!requiredFields.contains(fieldName)) {
+            relDataTypeBuilder.add(fieldName, condNode.getType());
+            selectedFields.add(fieldName);
+          }
         }
       }
     }
 
+    selectedFields.addAll(requiredFields);
     return relDataTypeBuilder.build();
   }
 
