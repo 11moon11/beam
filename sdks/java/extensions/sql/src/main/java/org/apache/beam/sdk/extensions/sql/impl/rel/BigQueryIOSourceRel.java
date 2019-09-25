@@ -19,6 +19,7 @@ package org.apache.beam.sdk.extensions.sql.impl.rel;
 
 import static org.apache.beam.vendor.guava.v26_0_jre.com.google.common.base.Preconditions.checkArgument;
 
+import java.util.List;
 import java.util.Map;
 import org.apache.beam.sdk.extensions.sql.meta.provider.bigquery.BigQueryTable;
 import org.apache.beam.sdk.extensions.sql.impl.BeamCalciteTable;
@@ -43,6 +44,7 @@ public class BigQueryIOSourceRel extends TableScan implements BeamRelNode {
   private final BigQueryTable beamTable;
   private final BeamCalciteTable calciteTable;
   private final Map<String, String> pipelineOptions;
+  private List<String> selectedFields;
 
   public BigQueryIOSourceRel(
       RelOptCluster cluster,
@@ -54,6 +56,18 @@ public class BigQueryIOSourceRel extends TableScan implements BeamRelNode {
     this.beamTable = beamTable;
     this.calciteTable = calciteTable;
     this.pipelineOptions = pipelineOptions;
+    this.selectedFields = null;
+  }
+
+  public BigQueryIOSourceRel(
+      RelOptCluster cluster,
+      RelOptTable table,
+      BigQueryTable beamTable,
+      Map<String, String> pipelineOptions,
+      BeamCalciteTable calciteTable,
+      List<String> selectedFields) {
+    this(cluster, table, beamTable, pipelineOptions, calciteTable);
+    this.selectedFields = selectedFields;
   }
 
   public void setRowType(RelDataType rowType) {
@@ -100,7 +114,12 @@ public class BigQueryIOSourceRel extends TableScan implements BeamRelNode {
           "Should not have received input for %s: %s",
           BigQueryIOSourceRel.class.getSimpleName(),
           input);
-      return beamTable.buildIOReader(input.getPipeline().begin());
+
+      if (BigQueryIOSourceRel.this.selectedFields == null || BigQueryIOSourceRel.this.selectedFields.isEmpty()) {
+        return beamTable.buildIOReader(input.getPipeline().begin());
+      } else {
+        return beamTable.buildIOReader(input.getPipeline().begin(), BigQueryIOSourceRel.this.selectedFields);
+      }
     }
   }
 

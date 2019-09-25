@@ -52,7 +52,6 @@ import org.slf4j.LoggerFactory;
 public class BigQueryTable extends BaseBeamTable implements Serializable {
   @VisibleForTesting static final String METHOD_PROPERTY = "method";
   @VisibleForTesting final String bqLocation;
-  private List<String> selectedFields;
   private final ConversionOptions conversionOptions;
   private BeamTableStatistics rowCountStatistics = null;
   private static final Logger LOGGER = LoggerFactory.getLogger(BigQueryTable.class);
@@ -62,7 +61,6 @@ public class BigQueryTable extends BaseBeamTable implements Serializable {
     super(table.getSchema());
     this.conversionOptions = options;
     this.bqLocation = table.getLocation();
-    this.selectedFields = new ArrayList<>();
 
     if (table.getProperties().containsKey(METHOD_PROPERTY)) {
       List<String> validMethods =
@@ -92,14 +90,6 @@ public class BigQueryTable extends BaseBeamTable implements Serializable {
     LOGGER.info("BigQuery method is set to: " + method.toString());
   }
 
-  public void setMethod(Method method) {
-    this.method = method;
-  }
-
-  public void setSelectedFields(List<String> selectedFields) {
-    this.selectedFields = selectedFields;
-  }
-
   @Override
   public BeamTableStatistics getTableStatistics(PipelineOptions options) {
 
@@ -117,30 +107,30 @@ public class BigQueryTable extends BaseBeamTable implements Serializable {
 
   @Override
   public PCollection<Row> buildIOReader(PBegin begin) {
-    if(selectedFields == null || selectedFields.size() == 0) {
-      return begin
-          .apply(
-              "Read Input BQ Rows",
-              BigQueryIO.read(
-                  record ->
-                      BigQueryUtils.toBeamRow(record.getRecord(), getSchema(), conversionOptions))
-                  .withMethod(method)
-                  .from(bqLocation)
-                  .withCoder(SchemaCoder.of(getSchema())))
-          .setRowSchema(getSchema());
-    } else {
-      return begin
-          .apply(
-              "Read Input BQ Rows",
-              BigQueryIO.read(
-                  record ->
-                      BigQueryUtils.toBeamRow(record.getRecord(), getSchema(), conversionOptions))
-                  .withMethod(method)
-                  .withSelectedFields(selectedFields)
-                  .from(bqLocation)
-                  .withCoder(SchemaCoder.of(getSchema())))
-          .setRowSchema(getSchema());
-    }
+    return begin
+        .apply(
+            "Read Input BQ Rows",
+            BigQueryIO.read(
+                record ->
+                    BigQueryUtils.toBeamRow(record.getRecord(), getSchema(), conversionOptions))
+                .withMethod(method)
+                .from(bqLocation)
+                .withCoder(SchemaCoder.of(getSchema())))
+        .setRowSchema(getSchema());
+  }
+
+  public PCollection<Row> buildIOReader(PBegin begin, List<String> selectedFields) {
+    return begin
+        .apply(
+            "Read Input BQ Rows",
+            BigQueryIO.read(
+                record ->
+                    BigQueryUtils.toBeamRow(record.getRecord(), getSchema(), conversionOptions))
+                .withMethod(Method.DIRECT_READ) // Since we specified a list of fields
+                .withSelectedFields(selectedFields)
+                .from(bqLocation)
+                .withCoder(SchemaCoder.of(getSchema())))
+        .setRowSchema(getSchema());
   }
 
   @Override

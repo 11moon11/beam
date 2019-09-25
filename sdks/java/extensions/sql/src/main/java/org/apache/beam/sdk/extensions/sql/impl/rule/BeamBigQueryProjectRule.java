@@ -10,6 +10,7 @@ import java.util.Queue;
 import org.apache.beam.sdk.extensions.sql.BeamSqlTable;
 import org.apache.beam.sdk.extensions.sql.impl.rel.BeamCalcRel;
 import org.apache.beam.sdk.extensions.sql.impl.rel.BigQueryIOSourceRel;
+import org.apache.beam.sdk.extensions.sql.meta.Table;
 import org.apache.beam.sdk.extensions.sql.meta.provider.bigquery.*;
 import org.apache.beam.sdk.extensions.sql.impl.rel.BeamIOSourceRel;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.TypedRead.Method;
@@ -154,14 +155,13 @@ public class BeamBigQueryProjectRule extends RelOptRule {
     }
 
     BigQueryTable bigQueryTable = (BigQueryTable) table;
-    bigQueryTable.setMethod(Method.DIRECT_READ);
-    bigQueryTable.setSelectedFields(selectedFields);
 
     BigQueryIOSourceRel bigQueryIOSourceRel = new BigQueryIOSourceRel(ioSourceRel.getCluster(),
         ioSourceRel.getTable(),
         bigQueryTable,
         ioSourceRel.getPipelineOptions(),
-        ioSourceRel.getCalciteTable());
+        ioSourceRel.getCalciteTable(),
+        selectedFields);
 
     bigQueryIOSourceRel.setRowType(calcInput);
 
