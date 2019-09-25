@@ -38,13 +38,13 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
 
 /** BeamRelNode to replace a {@code TableScan} node. */
-public class BigTableIOSourceRel extends TableScan implements BeamRelNode {
+public class BigQueryIOSourceRel extends TableScan implements BeamRelNode {
   public static final double CONSTANT_WINDOW_SIZE = 10d;
   private final BigQueryTable beamTable;
   private final BeamCalciteTable calciteTable;
   private final Map<String, String> pipelineOptions;
 
-  public BigTableIOSourceRel(
+  public BigQueryIOSourceRel(
       RelOptCluster cluster,
       RelOptTable table,
       BigQueryTable beamTable,
@@ -98,7 +98,7 @@ public class BigTableIOSourceRel extends TableScan implements BeamRelNode {
       checkArgument(
           input.size() == 0,
           "Should not have received input for %s: %s",
-          BigTableIOSourceRel.class.getSimpleName(),
+          BigQueryIOSourceRel.class.getSimpleName(),
           input);
       return beamTable.buildIOReader(input.getPipeline().begin());
     }

@@ -132,8 +132,8 @@ public class BigQueryReadWriteIT implements Serializable {
     BeamSqlRelUtils.toPCollection(pipeline, sqlEnv.parseQuery(insertStatement));
     pipeline.run().waitUntilFinish(Duration.standardMinutes(5));
 
-    String sqlQuery = "SELECT c_varchar FROM TEST";
-    BeamSqlRelUtils.toPCollection(readPipeline, sqlEnv.parseQuery(sqlQuery));
+    String sqlQuery = "SELECT c_varchar FROM TEST where c_tinyint=127";
+    PCollection<Row> result = BeamSqlRelUtils.toPCollection(readPipeline, sqlEnv.parseQuery(sqlQuery));
 
     readPipeline.run().waitUntilFinish(Duration.standardMinutes(5));
   }

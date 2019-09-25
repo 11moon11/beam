@@ -68,6 +68,10 @@ import org.slf4j.LoggerFactory;
  * Beam pipeline.
  */
 class CalciteQueryPlanner implements QueryPlanner {
+  static {
+    System.setProperty("calcite.debug", "true");
+    org.apache.log4j.Logger.getRootLogger().setLevel(org.apache.log4j.Level.DEBUG);
+  }
   private static final Logger LOG = LoggerFactory.getLogger(CalciteQueryPlanner.class);
 
   private final Planner planner;

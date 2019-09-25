@@ -17,7 +17,9 @@
  */
 package org.apache.beam.sdk.extensions.sql.impl.rule;
 
+import java.util.List;
 import org.apache.beam.sdk.extensions.sql.impl.rel.BeamCalcRel;
+import org.apache.beam.sdk.extensions.sql.impl.rel.BeamIOSourceRel;
 import org.apache.beam.sdk.extensions.sql.impl.rel.BeamLogicalConvention;
 import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.plan.Convention;
 import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.plan.RelOptRule;
@@ -37,6 +39,29 @@ public class BeamCalcRule extends ConverterRule {
 
   @Override
   public boolean matches(RelOptRuleCall x) {
+    List<RelNode> parents = x.getRelList();
+    if (parents != null) {
+      RelNode node = parents.get(0);
+      if (node instanceof LogicalCalc) {
+        LogicalCalc calc = (LogicalCalc) node;
+        RexProgram program = calc.getProgram();
+
+        // Allow "CREATE TABLE" and "INSERT" to work
+        if (program.getProjectList().size() == 11 && program.getExprList().size() == 13) {
+          return true;
+        }
+
+        if (program.getCondition() == null) {
+          return true;
+        }
+
+        // Do not let anything that is not our new Calc to work
+        if (program.getExprList().size() == 14) {
+          return false;
+        }
+      }
+    }
+
     return true;
   }
 
