@@ -35,7 +35,10 @@ import org.apache.beam.sdk.io.gcp.bigquery.BigQueryOptions;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryUtils;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryUtils.ConversionOptions;
 import org.apache.beam.sdk.options.PipelineOptions;
+import org.apache.beam.sdk.schemas.FieldAccessDescriptor;
+import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.schemas.SchemaCoder;
+import org.apache.beam.sdk.schemas.utils.SelectHelpers;
 import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.POutput;
@@ -107,6 +110,7 @@ public class BigQueryTable extends BaseBeamTable implements Serializable {
 
   @Override
   public PCollection<Row> buildIOReader(PBegin begin) {
+    LOGGER.info("BigQuery method being used: " + method.toString());
     return begin
         .apply(
             "Read Input BQ Rows",
@@ -120,17 +124,30 @@ public class BigQueryTable extends BaseBeamTable implements Serializable {
   }
 
   public PCollection<Row> buildIOReader(PBegin begin, List<String> selectedFields) {
+    Schema.Builder schemaBuilder = Schema.builder();
+    for (String fieldName : selectedFields) {
+      schemaBuilder.addField(getSchema().getField(fieldName));
+    }
+    Schema newSchema = schemaBuilder.build();
+
+    // Better alternative, but does not work atm
+    FieldAccessDescriptor resolved = FieldAccessDescriptor.withFieldNames(selectedFields).withOrderByFieldInsertionOrder().resolve(getSchema());
+    Schema outputSchema = SelectHelpers.getOutputSchema(getSchema(), resolved);
+
+    assert outputSchema.equals(newSchema);
+
+    LOGGER.info("BigQuery method being used: " + Method.DIRECT_READ + " (benefits)");
     return begin
         .apply(
             "Read Input BQ Rows",
             BigQueryIO.read(
                 record ->
-                    BigQueryUtils.toBeamRow(record.getRecord(), getSchema(), conversionOptions))
+                    BigQueryUtils.toBeamRow(record.getRecord(), newSchema, conversionOptions))
                 .withMethod(Method.DIRECT_READ) // Since we specified a list of fields
                 .withSelectedFields(selectedFields)
                 .from(bqLocation)
-                .withCoder(SchemaCoder.of(getSchema())))
-        .setRowSchema(getSchema());
+                .withCoder(SchemaCoder.of(newSchema)))
+        .setRowSchema(newSchema);
   }
 
   @Override
