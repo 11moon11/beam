@@ -4,8 +4,10 @@ import com.google.common.collect.ImmutableList;
 import com.sun.istack.Nullable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import org.apache.beam.sdk.extensions.sql.BeamSqlTable;
@@ -14,6 +16,7 @@ import org.apache.beam.sdk.extensions.sql.meta.provider.bigquery.*;
 import org.apache.beam.sdk.extensions.sql.impl.rel.BeamIOSourceRel;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Calc;
 import org.apache.calcite.rel.core.RelFactories;
 import org.apache.calcite.rel.type.RelDataType;
@@ -23,12 +26,14 @@ import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexInputRef;
+import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.rex.RexProgramBuilder;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.tools.RelBuilderFactory;
 import org.apache.calcite.util.Pair;
 
@@ -55,8 +60,9 @@ public class BeamBigQueryProjectRule extends RelOptRule {
     final BeamIOSourceRel ioSourceRel = call.rel(1);
 
     RexProgram program = calc.getProgram();
+    Map<Integer, Integer> rexInputRefMapping = new HashMap<>();
 
-    BigQueryIOSourceRel bigQueryIOSourceRel = constructNewIO(calc, ioSourceRel);
+    BigQueryIOSourceRel bigQueryIOSourceRel = constructNewIO(calc, ioSourceRel, rexInputRefMapping);
     // TODO: remove `calc.getProgram().getOutputRowType().getFieldCount() != 1`
     if (bigQueryIOSourceRel == null || calc.getProgram().getOutputRowType().getFieldCount() != 1) {
       return;
@@ -65,16 +71,10 @@ public class BeamBigQueryProjectRule extends RelOptRule {
     // Can quit here if Calc does nothing besides project (works as intended)
     //call.transformTo(bigQueryIOSourceRel);
 
-    // When calc does something, need to modify inputs of the program
-    final Pair<ImmutableList<RexNode>, ImmutableList<RexNode>> projectFilter = program.split();
-    /*if (projectFilter.right.size() == 0) {
-      call.transformTo(bigQueryIOSourceRel);
-      return;
-    }*/
+    RelNode nCalc = reconstructCalc(calc, bigQueryIOSourceRel, call.builder(), rexInputRefMapping);
 
-    Calc result = constructNewCalc(calc, bigQueryIOSourceRel);
-
-    call.transformTo(result);
+    //Calc result = constructNewCalc(calc, bigQueryIOSourceRel);
+    call.transformTo(nCalc);
   }
 
   /**
@@ -83,7 +83,7 @@ public class BeamBigQueryProjectRule extends RelOptRule {
    * @param selectedFields List used by BigQuery for project
    * @return RowType to replace current BigQuery output and Calc input
    */
-  private RelDataType newRowTypeForBigQuery(Calc calc, List<String> selectedFields) {
+  private RelDataType newRowTypeForBigQuery(Calc calc, List<String> selectedFields, Map<Integer, Integer> rexInputRefMapping) {
     RexProgram program = calc.getProgram();
     Set<String> requiredFields = new HashSet<>();
     RelDataTypeFactory.Builder relDataTypeBuilder = calc.getCluster().getTypeFactory().builder();
@@ -91,12 +91,11 @@ public class BeamBigQueryProjectRule extends RelOptRule {
     final Pair<ImmutableList<RexNode>, ImmutableList<RexNode>> projectFilter = program.split();
     // Find all input refs used by projects
     for (RexNode project : projectFilter.left) {
-      findUtilizedInputRefs(program, project, requiredFields, relDataTypeBuilder);
+      findUtilizedInputRefs(program, project, requiredFields, relDataTypeBuilder, rexInputRefMapping);
     }
     // Find all input refs used by filters
     for (RexNode filter : projectFilter.right) {
-      // TODO: Modify to do filter push-down
-      findUtilizedInputRefs(program, filter, requiredFields, relDataTypeBuilder);
+      findUtilizedInputRefs(program, filter, requiredFields, relDataTypeBuilder, rexInputRefMapping);
     }
 
     selectedFields.addAll(requiredFields);
@@ -104,13 +103,14 @@ public class BeamBigQueryProjectRule extends RelOptRule {
   }
 
   /**
-   *
+   * Given a RexNode find all RexInputRefs it or it's children use
    * @param program Calc program to search through
    * @param startNode Node to start at
    * @param requiredFields Used to keep track of input fields used by the node and it's children
    * @param relDataTypeBuilder Builder for new RelDataType containing only used input fields
+   * @param inputMappings Records mappings of input field indexes in a new RelDataType
    */
-  private void findUtilizedInputRefs(RexProgram program, RexNode startNode, Set<String> requiredFields, RelDataTypeFactory.Builder relDataTypeBuilder) {
+  private void findUtilizedInputRefs(RexProgram program, RexNode startNode, Set<String> requiredFields, RelDataTypeFactory.Builder relDataTypeBuilder, Map<Integer, Integer> inputMappings) {
     Queue<RexNode> prerequisites = new ArrayDeque<>();
     prerequisites.add(startNode);
 
@@ -130,6 +130,7 @@ public class BeamBigQueryProjectRule extends RelOptRule {
 
         // If we have not seen it before - add it to the list
         if (!requiredFields.contains(field.getName())) {
+          inputMappings.put(inputFieldIndex, relDataTypeBuilder.getFieldCount());
           relDataTypeBuilder.add(field.getName(), field.getType());
           requiredFields.add(field.getName());
         }
@@ -141,9 +142,8 @@ public class BeamBigQueryProjectRule extends RelOptRule {
    * Construct an optimized BigQueryIO (with Project / Filter operations pushed-down)
    * @param calc Calc following BeamIOSourceRel
    * @param ioSourceRel IO sink, which will be transformed
-   * @return BigQueryIOSourceRel on success, null on failure
    */
-  @Nullable private BigQueryIOSourceRel constructNewIO(Calc calc, BeamIOSourceRel ioSourceRel) {
+  @Nullable private BigQueryIOSourceRel constructNewIO(Calc calc, BeamIOSourceRel ioSourceRel, Map<Integer, Integer> rexInputRefMapping) {
     final BeamSqlTable table = ioSourceRel.getBeamSqlTable();
     // If IOSource does not support filter/project push-down - no work to be done
     if(!(table instanceof BigQueryTable)) {
@@ -151,7 +151,7 @@ public class BeamBigQueryProjectRule extends RelOptRule {
     }
 
     List<String> selectedFields = new ArrayList<>();
-    RelDataType calcInput = newRowTypeForBigQuery(calc, selectedFields);
+    RelDataType calcInput = newRowTypeForBigQuery(calc, selectedFields, rexInputRefMapping);
     // If no fields are being used - no work to be done
     if (selectedFields.size() == 0) {
       return null;
@@ -171,44 +171,50 @@ public class BeamBigQueryProjectRule extends RelOptRule {
     return bigQueryIOSourceRel;
   }
 
-  /**
-   * Creates a new Calc with remaining conditions and filters, which were unable to get pushed-down
-   * @param currentCalc existing Calc
-   * @param bigQueryIOSourceRel new IO with some projects and filters pushed-down
-   * @return Calc with the new input and remaining operations
-   */
-  private Calc constructNewCalc(Calc currentCalc, BigQueryIOSourceRel bigQueryIOSourceRel) {
+  private RelNode reconstructCalc(Calc currentCalc, BigQueryIOSourceRel bigQueryIOSourceRel, RelBuilder relBuilder, Map<Integer, Integer> rexInputRefMapping) {
     RexProgram program = currentCalc.getProgram();
+    RelDataType newInputs = bigQueryIOSourceRel.getRowType();
 
-    List<RexNode> list = program.getExprList();
-    RexBuilder rexBuilder = currentCalc.getCluster().getRexBuilder();
-    RexProgramBuilder rexProgramBuilder = new RexProgramBuilder(bigQueryIOSourceRel.getRowType(), rexBuilder);
-    SqlTypeFactoryImpl sqlTypeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    relBuilder.push(bigQueryIOSourceRel);
 
-    // TODO: Construct new program inputs without using hard-coded values
-    RexNode rexNode = new RexInputRef(0, sqlTypeFactory.createTypeWithNullability(sqlTypeFactory.createSqlType(SqlTypeName.VARCHAR), true));
-    RexNode rexNodeCond = new RexInputRef(1, sqlTypeFactory.createTypeWithNullability(sqlTypeFactory.createSqlType(SqlTypeName.TINYINT), true));
+    List<RexNode> newProjects = new ArrayList<>();
+    List<RexNode> newFilter = new ArrayList<>();
+    final Pair<ImmutableList<RexNode>, ImmutableList<RexNode>> projectFilter = program.split();
+    // TODO: Attempt to move filter to IO (push-down)
+    // Rebuild all filters to use new input refs
+    for (RexNode filter : projectFilter.right) {
+      newFilter.add(reconstructFilterNode(filter, newInputs, rexInputRefMapping));
+    }
+    relBuilder.filter(newFilter);
 
-    RexLocalRef project = rexProgramBuilder.registerInput(rexNode);
-    rexProgramBuilder.registerInput(rexNodeCond);
+    // Rebuild all projects to use new input refs
+    for (RexNode project : projectFilter.left) {
+      newProjects.add(reconstructFilterNode(project, newInputs, rexInputRefMapping));
+    }
+    relBuilder.project(newProjects, currentCalc.getRowType().getFieldNames());
 
-    rexProgramBuilder.addProject(0, "$t0"); // TODO: handle SQL 'as'
-    RexLocalRef castInputToInt = rexProgramBuilder.addExpr(list.get(11));
-    RexLocalRef finalIntToCompareTo = rexProgramBuilder.addExpr(list.get(12));
-    RexLocalRef condition = rexProgramBuilder.addExpr(rexBuilder.copy(((RexCall) list.get(13)).clone(list.get(13).getType(), ImmutableList.of(castInputToInt, finalIntToCompareTo))));
-    //condition = rexProgramBuilder.registerOutput(condition);
+    return relBuilder.build();
+  }
 
-    //rexProgramBuilder.addExpr();
-    rexProgramBuilder.addCondition(condition);
-    RexProgram builtProgram = rexProgramBuilder.getProgram();
+  private RexNode reconstructFilterNode(RexNode node, RelDataType newInputs, Map<Integer, Integer> rexInputRefMapping) {
+    if (node instanceof RexInputRef) {
+      int oldInputIndex = ((RexInputRef) node).getIndex();
+      int newInputIndex = rexInputRefMapping.get(oldInputIndex);
 
-    // TODO: Map `program.getCondition()` to new values
+      // Create a new input reference pointing to a new input field
+      return new RexInputRef(newInputIndex, newInputs.getFieldList().get(newInputIndex).getType());
+    } else if (node instanceof RexCall) { // Composite expression, example: "=($t11, $t12)"
+      RexCall compositeNode = (RexCall) node;
+      List<RexNode> newOperands = new ArrayList<>();
 
-    //RexProgram newProgram = RexProgram.create(bigQueryIOSourceRel.getRowType(), ImmutableList.of(project), builtProgram.getCondition(), builtProgram.getOutputRowType(), currentCalc.getCluster().getRexBuilder());
-    // TODO: Remove project from the program, since it is being moved it IO
-    final Calc result = currentCalc.copy(currentCalc.getTraitSet(),
-        bigQueryIOSourceRel, builtProgram);
+      for (RexNode operand : compositeNode.getOperands()) {
+        newOperands.add(reconstructFilterNode(operand, newInputs, rexInputRefMapping));
+      }
 
-    return result;
+      return compositeNode.clone(compositeNode.getType(), newOperands);
+    }
+
+    // If node is a Literal - return it as is
+    return node;
   }
 }

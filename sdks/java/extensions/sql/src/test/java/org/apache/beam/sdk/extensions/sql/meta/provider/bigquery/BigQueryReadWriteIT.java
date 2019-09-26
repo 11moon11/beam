@@ -132,10 +132,16 @@ public class BigQueryReadWriteIT implements Serializable {
     BeamSqlRelUtils.toPCollection(pipeline, sqlEnv.parseQuery(insertStatement));
     pipeline.run().waitUntilFinish(Duration.standardMinutes(5));
 
-    String sqlQuery = "SELECT c_varchar FROM TEST where c_tinyint=127";
-    PCollection<Row> result = BeamSqlRelUtils.toPCollection(readPipeline, sqlEnv.parseQuery(sqlQuery));
+    // SELECT c_integer-10 as out_int FROM TEST where c_tinyint=127 and (c_smallint=32767 and (c_integer=2147483647 or (c_float=1.0 and c_double=1.0 and c_integer-10=2147483637)))
+    String sqlQuery = "SELECT c_integer FROM TEST where c_tinyint=127";
+    PCollection<Row> output = BeamSqlRelUtils.toPCollection(readPipeline, sqlEnv.parseQuery(sqlQuery));
+
+    PAssert.that(output)
+        .containsInAnyOrder(
+            row(output.getSchema(), 2147483647));
 
     readPipeline.run().waitUntilFinish(Duration.standardMinutes(5));
+
   }
 
   @Test
