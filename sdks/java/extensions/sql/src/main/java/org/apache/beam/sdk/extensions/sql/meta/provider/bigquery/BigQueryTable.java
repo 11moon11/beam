@@ -124,17 +124,15 @@ public class BigQueryTable extends BaseBeamTable implements Serializable {
   }
 
   public PCollection<Row> buildIOReader(PBegin begin, List<String> selectedFields) {
-    Schema.Builder schemaBuilder = Schema.builder();
+    /*Schema.Builder schemaBuilder = Schema.builder();
     for (String fieldName : selectedFields) {
       schemaBuilder.addField(getSchema().getField(fieldName));
     }
-    Schema newSchema = schemaBuilder.build();
+    Schema newSchema = schemaBuilder.build();*/
 
-    // Better alternative, but does not work atm
     FieldAccessDescriptor resolved = FieldAccessDescriptor.withFieldNames(selectedFields).withOrderByFieldInsertionOrder().resolve(getSchema());
-    Schema outputSchema = SelectHelpers.getOutputSchema(getSchema(), resolved);
+    Schema newSchema = SelectHelpers.getOutputSchema(getSchema(), resolved);
 
-    assert outputSchema.equals(newSchema);
 
     LOGGER.info("BigQuery method being used: " + Method.DIRECT_READ + " (benefits)");
     return begin
@@ -146,6 +144,32 @@ public class BigQueryTable extends BaseBeamTable implements Serializable {
                 .withMethod(Method.DIRECT_READ) // Since we specified a list of fields
                 .withSelectedFields(selectedFields)
                 .from(bqLocation)
+                .withCoder(SchemaCoder.of(newSchema)))
+        .setRowSchema(newSchema);
+  }
+
+  public PCollection<Row> buildIOReader(PBegin begin, List<String> selectedFields, String rowRestrictions) {
+    /*Schema.Builder schemaBuilder = Schema.builder();
+    for (String fieldName : selectedFields) {
+      schemaBuilder.addField(getSchema().getField(fieldName));
+    }
+    Schema newSchema = schemaBuilder.build();*/
+
+    FieldAccessDescriptor resolved = FieldAccessDescriptor.withFieldNames(selectedFields).withOrderByFieldInsertionOrder().resolve(getSchema());
+    Schema newSchema = SelectHelpers.getOutputSchema(getSchema(), resolved);
+
+
+    LOGGER.info("BigQuery method being used: " + Method.DIRECT_READ + " (benefits)");
+    return begin
+        .apply(
+            "Read Input BQ Rows",
+            BigQueryIO.read(
+                record ->
+                    BigQueryUtils.toBeamRow(record.getRecord(), newSchema, conversionOptions))
+                .withMethod(Method.DIRECT_READ) // Since we specified a list of fields
+                .withSelectedFields(selectedFields)
+                .from(bqLocation)
+                .withRowRestriction(rowRestrictions)
                 .withCoder(SchemaCoder.of(newSchema)))
         .setRowSchema(newSchema);
   }

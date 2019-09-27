@@ -5,21 +5,22 @@ import com.sun.istack.Nullable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.function.IntFunction;
 import org.apache.beam.sdk.extensions.sql.BeamSqlTable;
-import org.apache.beam.sdk.extensions.sql.impl.rel.BigQueryIOSourceRel;
-import org.apache.beam.sdk.extensions.sql.meta.provider.bigquery.*;
 import org.apache.beam.sdk.extensions.sql.impl.rel.BeamIOSourceRel;
+import org.apache.beam.sdk.extensions.sql.impl.rel.BigQueryIOSourceRel;
+import org.apache.beam.sdk.extensions.sql.meta.provider.bigquery.BigQueryTable;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Calc;
 import org.apache.calcite.rel.core.RelFactories;
+import org.apache.calcite.rel.rel2sql.SqlImplementor;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
@@ -27,6 +28,9 @@ import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexProgram;
+import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.tools.RelBuilderFactory;
 import org.apache.calcite.util.Pair;
@@ -56,7 +60,8 @@ public class BeamBigQueryProjectRule extends RelOptRule {
     Map<Integer, Integer> rexInputRefMapping = new HashMap<>();
 
     BigQueryIOSourceRel bigQueryIOSourceRel = constructNewIO(calc, ioSourceRel, rexInputRefMapping);
-    if (bigQueryIOSourceRel == null) {
+    //TODO: remove `calc.getProgram().getOutputRowType().getFieldCount() > 1`
+    if (bigQueryIOSourceRel == null || calc.getProgram().getOutputRowType().getFieldCount() > 1) {
       return;
     }
 
@@ -85,9 +90,10 @@ public class BeamBigQueryProjectRule extends RelOptRule {
       findUtilizedInputRefs(program, project, requiredFields, relDataTypeBuilder, rexInputRefMapping);
     }
     // Find all input refs used by filters
-    for (RexNode filter : projectFilter.right) {
+    // TODO: uncomment
+    /*for (RexNode filter : projectFilter.right) {
       findUtilizedInputRefs(program, filter, requiredFields, relDataTypeBuilder, rexInputRefMapping);
-    }
+    }*/
 
     selectedFields.addAll(requiredFields);
     return relDataTypeBuilder.build();
@@ -171,12 +177,21 @@ public class BeamBigQueryProjectRule extends RelOptRule {
     List<RexNode> newProjects = new ArrayList<>();
     List<RexNode> newFilter = new ArrayList<>();
     final Pair<ImmutableList<RexNode>, ImmutableList<RexNode>> projectFilter = program.split();
+
     // TODO: Attempt to move filter to IO (push-down)
-    // Rebuild all filters to use new input refs
-    for (RexNode filter : projectFilter.right) {
-      newFilter.add(reconstructRexNode(filter, newInputs, rexInputRefMapping));
+    SqlNode condition = null;
+    if (program.getCondition() != null) {
+      condition = convertRelToSql(program, program.getExprList().get(program.getCondition().getIndex()));
     }
-    relBuilder.filter(newFilter);
+    if (condition == null) {
+      // Rebuild all filters to use new input refs
+      for (RexNode filter : projectFilter.right) {
+        newFilter.add(reconstructRexNode(filter, newInputs, rexInputRefMapping));
+      }
+      relBuilder.filter(newFilter);
+    } else {
+      // TODO: if filter push-down is successfully, re-analyze what RexInputsRefs are needed for projects
+    }
 
     // Rebuild all projects to use new input refs
     for (RexNode project : projectFilter.left) {
@@ -207,5 +222,17 @@ public class BeamBigQueryProjectRule extends RelOptRule {
 
     // If node is a Literal - return it as is
     return node;
+  }
+
+  private SqlNode convertRelToSql(RexProgram program, RexNode rex) {
+    IntFunction<SqlNode> field = i ->  new SqlIdentifier(program.getInputRowType().getFieldList().get(i).getName(), SqlParserPos.ZERO);
+    // TODO: Move this to Calcite BigQuery Dialect
+    SqlImplementor.SimpleContext context = new SqlImplementor.SimpleContext(BigQuerySqlDialectWithTypeTranslation.DEFAULT, field); // SqlDialect.DatabaseProduct.CALCITE.getDialect()
+    SqlNode sqlNode = context.toSql(program, rex);
+
+    String sql = sqlNode.toSqlString(BigQuerySqlDialectWithTypeTranslation.DEFAULT).getSql();
+
+    System.out.println("SQL condition looks something like this: " + sql);
+    return sqlNode;
   }
 }

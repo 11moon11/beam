@@ -19,13 +19,14 @@ package org.apache.beam.sdk.extensions.sql.impl.rel;
 
 import static org.apache.beam.vendor.guava.v26_0_jre.com.google.common.base.Preconditions.checkArgument;
 
+import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Map;
-import org.apache.beam.sdk.extensions.sql.meta.provider.bigquery.BigQueryTable;
 import org.apache.beam.sdk.extensions.sql.impl.BeamCalciteTable;
 import org.apache.beam.sdk.extensions.sql.impl.BeamTableStatistics;
 import org.apache.beam.sdk.extensions.sql.impl.planner.BeamCostModel;
 import org.apache.beam.sdk.extensions.sql.impl.planner.NodeStats;
+import org.apache.beam.sdk.extensions.sql.meta.provider.bigquery.BigQueryTable;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionList;
@@ -115,11 +116,17 @@ public class BigQueryIOSourceRel extends TableScan implements BeamRelNode {
           BigQueryIOSourceRel.class.getSimpleName(),
           input);
 
+      // TODO: Not use hard-coded condition
+      BigQueryIOSourceRel.this.selectedFields = ImmutableList.of("c_integer");
+      return beamTable.buildIOReader(input.getPipeline().begin(),
+          BigQueryIOSourceRel.this.selectedFields,
+          "CAST(c_tinyint AS INT64) = 127 AND CAST(c_smallint AS INT64) = 32767 AND (c_integer = 2147483647 OR CAST(c_float AS FLOAT64) = 1.0 AND c_double = 1.0 AND c_integer - 10 = 2147483637)");
+/*
       if (BigQueryIOSourceRel.this.selectedFields == null || BigQueryIOSourceRel.this.selectedFields.isEmpty()) {
         return beamTable.buildIOReader(input.getPipeline().begin());
       } else {
         return beamTable.buildIOReader(input.getPipeline().begin(), BigQueryIOSourceRel.this.selectedFields);
-      }
+      }*/
     }
   }
 

@@ -24,7 +24,7 @@ package org.apache.beam.sdk.io.gcp.bigquery;
  * @see <a
  *     href="https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types">https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types</a>
  */
-enum StandardSQLTypeName {
+public enum StandardSQLTypeName {
   /** A Boolean value (true or false). */
   BOOL,
   /** A 64-bit signed integer value. */
