@@ -31,13 +31,13 @@ import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionList;
 import org.apache.beam.sdk.values.Row;
-import org.apache.calcite.plan.RelOptCluster;
-import org.apache.calcite.plan.RelOptCost;
-import org.apache.calcite.plan.RelOptPlanner;
-import org.apache.calcite.plan.RelOptTable;
-import org.apache.calcite.rel.core.TableScan;
-import org.apache.calcite.rel.metadata.RelMetadataQuery;
-import org.apache.calcite.rel.type.RelDataType;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.plan.RelOptCluster;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.plan.RelOptCost;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.plan.RelOptPlanner;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.plan.RelOptTable;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.rel.core.TableScan;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.rel.metadata.RelMetadataQuery;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.rel.type.RelDataType;
 
 /** BeamRelNode to replace a {@code TableScan} node. */
 public class BigQueryIOSourceRel extends TableScan implements BeamRelNode {
@@ -118,10 +118,11 @@ public class BigQueryIOSourceRel extends TableScan implements BeamRelNode {
 
       // TODO: Not use hard-coded condition
       BigQueryIOSourceRel.this.selectedFields = ImmutableList.of("c_integer");
-      return beamTable.buildIOReader(input.getPipeline().begin(),
+      return beamTable.buildIOReader(
+          input.getPipeline().begin(),
           BigQueryIOSourceRel.this.selectedFields,
           "CAST(c_tinyint AS INT64) = 127 AND CAST(c_smallint AS INT64) = 32767 AND (c_integer = 2147483647 OR CAST(c_float AS FLOAT64) = 1.0 AND c_double = 1.0 AND c_integer - 10 = 2147483637)");
-/*
+      /*
       if (BigQueryIOSourceRel.this.selectedFields == null || BigQueryIOSourceRel.this.selectedFields.isEmpty()) {
         return beamTable.buildIOReader(input.getPipeline().begin());
       } else {

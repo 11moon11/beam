@@ -20,7 +20,6 @@ package org.apache.beam.sdk.extensions.sql.meta.provider.bigquery;
 import java.io.IOException;
 import java.io.Serializable;
 import java.math.BigInteger;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -116,8 +115,8 @@ public class BigQueryTable extends BaseBeamTable implements Serializable {
         .apply(
             "Read Input BQ Rows",
             BigQueryIO.read(
-                record ->
-                    BigQueryUtils.toBeamRow(record.getRecord(), getSchema(), conversionOptions))
+                    record ->
+                        BigQueryUtils.toBeamRow(record.getRecord(), getSchema(), conversionOptions))
                 .withMethod(method)
                 .from(bqLocation)
                 .withCoder(SchemaCoder.of(getSchema())))
@@ -131,17 +130,19 @@ public class BigQueryTable extends BaseBeamTable implements Serializable {
     }
     Schema newSchema = schemaBuilder.build();*/
 
-    FieldAccessDescriptor resolved = FieldAccessDescriptor.withFieldNames(selectedFields).withOrderByFieldInsertionOrder().resolve(getSchema());
+    FieldAccessDescriptor resolved =
+        FieldAccessDescriptor.withFieldNames(selectedFields)
+            .withOrderByFieldInsertionOrder()
+            .resolve(getSchema());
     Schema newSchema = SelectHelpers.getOutputSchema(getSchema(), resolved);
-
 
     LOGGER.info("BigQuery method being used: " + Method.DIRECT_READ + " (benefits)");
     return begin
         .apply(
             "Read Input BQ Rows",
             BigQueryIO.read(
-                record ->
-                    BigQueryUtils.toBeamRow(record.getRecord(), newSchema, conversionOptions))
+                    record ->
+                        BigQueryUtils.toBeamRow(record.getRecord(), newSchema, conversionOptions))
                 .withMethod(Method.DIRECT_READ) // Since we specified a list of fields
                 .withSelectedFields(selectedFields)
                 .from(bqLocation)
@@ -149,24 +150,27 @@ public class BigQueryTable extends BaseBeamTable implements Serializable {
         .setRowSchema(newSchema);
   }
 
-  public PCollection<Row> buildIOReader(PBegin begin, List<String> selectedFields, String rowRestrictions) {
+  public PCollection<Row> buildIOReader(
+      PBegin begin, List<String> selectedFields, String rowRestrictions) {
     /*Schema.Builder schemaBuilder = Schema.builder();
     for (String fieldName : selectedFields) {
       schemaBuilder.addField(getSchema().getField(fieldName));
     }
     Schema newSchema = schemaBuilder.build();*/
 
-    FieldAccessDescriptor resolved = FieldAccessDescriptor.withFieldNames(selectedFields).withOrderByFieldInsertionOrder().resolve(getSchema());
+    FieldAccessDescriptor resolved =
+        FieldAccessDescriptor.withFieldNames(selectedFields)
+            .withOrderByFieldInsertionOrder()
+            .resolve(getSchema());
     Schema newSchema = SelectHelpers.getOutputSchema(getSchema(), resolved);
-
 
     LOGGER.info("BigQuery method being used: " + Method.DIRECT_READ + " (benefits)");
     return begin
         .apply(
             "Read Input BQ Rows",
             BigQueryIO.read(
-                record ->
-                    BigQueryUtils.toBeamRow(record.getRecord(), newSchema, conversionOptions))
+                    record ->
+                        BigQueryUtils.toBeamRow(record.getRecord(), newSchema, conversionOptions))
                 .withMethod(Method.DIRECT_READ) // Since we specified a list of fields
                 .withSelectedFields(selectedFields)
                 .from(bqLocation)

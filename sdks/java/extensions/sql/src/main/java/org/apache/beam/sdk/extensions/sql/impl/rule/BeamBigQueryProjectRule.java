@@ -1,6 +1,22 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.beam.sdk.extensions.sql.impl.rule;
 
-import com.google.common.collect.ImmutableList;
 import com.sun.istack.Nullable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -15,42 +31,40 @@ import org.apache.beam.sdk.extensions.sql.BeamSqlTable;
 import org.apache.beam.sdk.extensions.sql.impl.rel.BeamIOSourceRel;
 import org.apache.beam.sdk.extensions.sql.impl.rel.BigQueryIOSourceRel;
 import org.apache.beam.sdk.extensions.sql.meta.provider.bigquery.BigQueryTable;
-import org.apache.calcite.plan.RelOptRule;
-import org.apache.calcite.plan.RelOptRuleCall;
-import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.core.Calc;
-import org.apache.calcite.rel.core.RelFactories;
-import org.apache.calcite.rel.rel2sql.SqlImplementor;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.rex.RexCall;
-import org.apache.calcite.rex.RexInputRef;
-import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.rex.RexProgram;
-import org.apache.calcite.sql.SqlIdentifier;
-import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.parser.SqlParserPos;
-import org.apache.calcite.tools.RelBuilder;
-import org.apache.calcite.tools.RelBuilderFactory;
-import org.apache.calcite.util.Pair;
+import org.apache.beam.vendor.calcite.v1_20_0.com.google.common.collect.ImmutableList;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.plan.RelOptRule;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.plan.RelOptRuleCall;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.rel.RelNode;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.rel.core.Calc;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.rel.core.RelFactories;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.rel.rel2sql.SqlImplementor;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.rel.type.RelDataType;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.rex.RexCall;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.rex.RexInputRef;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.rex.RexNode;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.rex.RexProgram;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.sql.SqlIdentifier;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.sql.SqlNode;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.tools.RelBuilder;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.tools.RelBuilderFactory;
+import org.apache.beam.vendor.calcite.v1_20_0.org.apache.calcite.util.Pair;
 
 public class BeamBigQueryProjectRule extends RelOptRule {
-  //~ Static fields/initializers ---------------------------------------------
+  // ~ Static fields/initializers ---------------------------------------------
 
   public static final BeamBigQueryProjectRule INSTANCE =
       new BeamBigQueryProjectRule(RelFactories.LOGICAL_BUILDER);
 
-  //~ Constructors -----------------------------------------------------------
+  // ~ Constructors -----------------------------------------------------------
 
   public BeamBigQueryProjectRule(RelBuilderFactory relBuilderFactory) {
-    super(operand(
-            Calc.class,
-            operand(BeamIOSourceRel.class, any())),
-        relBuilderFactory, null);
+    super(operand(Calc.class, operand(BeamIOSourceRel.class, any())), relBuilderFactory, null);
   }
 
-  //~ Methods ----------------------------------------------------------------
+  // ~ Methods ----------------------------------------------------------------
 
   @Override
   public void onMatch(RelOptRuleCall call) {
@@ -60,34 +74,37 @@ public class BeamBigQueryProjectRule extends RelOptRule {
     Map<Integer, Integer> rexInputRefMapping = new HashMap<>();
 
     BigQueryIOSourceRel bigQueryIOSourceRel = constructNewIO(calc, ioSourceRel, rexInputRefMapping);
-    //TODO: remove `calc.getProgram().getOutputRowType().getFieldCount() > 1`
+    // TODO: remove `calc.getProgram().getOutputRowType().getFieldCount() > 1`
     if (bigQueryIOSourceRel == null || calc.getProgram().getOutputRowType().getFieldCount() > 1) {
       return;
     }
 
     RelNode nCalc = reconstructCalc(calc, bigQueryIOSourceRel, call.builder(), rexInputRefMapping);
 
-    //Calc result = constructNewCalc(calc, bigQueryIOSourceRel);
+    // Calc result = constructNewCalc(calc, bigQueryIOSourceRel);
     call.getPlanner().setImportance(calc, 0.0);
     call.transformTo(nCalc);
   }
 
   /**
    * Generate new RowType for BigQueryIO
+   *
    * @param calc Calc
    * @param selectedFields List used by BigQuery for project
    * @return RowType to replace current BigQuery output and Calc input
    */
-  private RelDataType newRowTypeForBigQuery(Calc calc, List<String> selectedFields, Map<Integer, Integer> rexInputRefMapping) {
+  private RelDataType newRowTypeForBigQuery(
+      Calc calc, List<String> selectedFields, Map<Integer, Integer> rexInputRefMapping) {
     RexProgram program = calc.getProgram();
-    //TODO: replace with FieldAccessDescriptor
+    // TODO: replace with FieldAccessDescriptor
     Set<String> requiredFields = new LinkedHashSet<>();
     RelDataTypeFactory.Builder relDataTypeBuilder = calc.getCluster().getTypeFactory().builder();
 
     final Pair<ImmutableList<RexNode>, ImmutableList<RexNode>> projectFilter = program.split();
     // Find all input refs used by projects
     for (RexNode project : projectFilter.left) {
-      findUtilizedInputRefs(program, project, requiredFields, relDataTypeBuilder, rexInputRefMapping);
+      findUtilizedInputRefs(
+          program, project, requiredFields, relDataTypeBuilder, rexInputRefMapping);
     }
     // Find all input refs used by filters
     // TODO: uncomment
@@ -101,13 +118,19 @@ public class BeamBigQueryProjectRule extends RelOptRule {
 
   /**
    * Given a RexNode find all RexInputRefs it or it's children use
+   *
    * @param program Calc program to search through
    * @param startNode Node to start at
    * @param requiredFields Used to keep track of input fields used by the node and it's children
    * @param relDataTypeBuilder Builder for new RelDataType containing only used input fields
    * @param inputMappings Records mappings of input field indexes in a new RelDataType
    */
-  private void findUtilizedInputRefs(RexProgram program, RexNode startNode, Set<String> requiredFields, RelDataTypeFactory.Builder relDataTypeBuilder, Map<Integer, Integer> inputMappings) {
+  private void findUtilizedInputRefs(
+      RexProgram program,
+      RexNode startNode,
+      Set<String> requiredFields,
+      RelDataTypeFactory.Builder relDataTypeBuilder,
+      Map<Integer, Integer> inputMappings) {
     Queue<RexNode> prerequisites = new ArrayDeque<>();
     prerequisites.add(startNode);
 
@@ -137,13 +160,16 @@ public class BeamBigQueryProjectRule extends RelOptRule {
 
   /**
    * Construct an optimized BigQueryIO (with Project / Filter operations pushed-down)
+   *
    * @param calc Calc following BeamIOSourceRel
    * @param ioSourceRel IO sink, which will be transformed
    */
-  @Nullable private BigQueryIOSourceRel constructNewIO(Calc calc, BeamIOSourceRel ioSourceRel, Map<Integer, Integer> rexInputRefMapping) {
+  @Nullable
+  private BigQueryIOSourceRel constructNewIO(
+      Calc calc, BeamIOSourceRel ioSourceRel, Map<Integer, Integer> rexInputRefMapping) {
     final BeamSqlTable table = ioSourceRel.getBeamSqlTable();
     // If IOSource does not support filter/project push-down - no work to be done
-    if(!(table instanceof BigQueryTable)) {
+    if (!(table instanceof BigQueryTable)) {
       return null;
     }
 
@@ -156,19 +182,25 @@ public class BeamBigQueryProjectRule extends RelOptRule {
 
     BigQueryTable bigQueryTable = (BigQueryTable) table;
 
-    BigQueryIOSourceRel bigQueryIOSourceRel = new BigQueryIOSourceRel(ioSourceRel.getCluster(),
-        ioSourceRel.getTable(),
-        bigQueryTable,
-        ioSourceRel.getPipelineOptions(),
-        ioSourceRel.getCalciteTable(),
-        selectedFields);
+    BigQueryIOSourceRel bigQueryIOSourceRel =
+        new BigQueryIOSourceRel(
+            ioSourceRel.getCluster(),
+            ioSourceRel.getTable(),
+            bigQueryTable,
+            ioSourceRel.getPipelineOptions(),
+            ioSourceRel.getCalciteTable(),
+            selectedFields);
 
     bigQueryIOSourceRel.setRowType(calcInput);
 
     return bigQueryIOSourceRel;
   }
 
-  private RelNode reconstructCalc(Calc currentCalc, BigQueryIOSourceRel bigQueryIOSourceRel, RelBuilder relBuilder, Map<Integer, Integer> rexInputRefMapping) {
+  private RelNode reconstructCalc(
+      Calc currentCalc,
+      BigQueryIOSourceRel bigQueryIOSourceRel,
+      RelBuilder relBuilder,
+      Map<Integer, Integer> rexInputRefMapping) {
     RexProgram program = currentCalc.getProgram();
     RelDataType newInputs = bigQueryIOSourceRel.getRowType();
 
@@ -181,7 +213,8 @@ public class BeamBigQueryProjectRule extends RelOptRule {
     // TODO: Attempt to move filter to IO (push-down)
     SqlNode condition = null;
     if (program.getCondition() != null) {
-      condition = convertRelToSql(program, program.getExprList().get(program.getCondition().getIndex()));
+      condition =
+          convertRelToSql(program, program.getExprList().get(program.getCondition().getIndex()));
     }
     if (condition == null) {
       // Rebuild all filters to use new input refs
@@ -190,7 +223,8 @@ public class BeamBigQueryProjectRule extends RelOptRule {
       }
       relBuilder.filter(newFilter);
     } else {
-      // TODO: if filter push-down is successfully, re-analyze what RexInputsRefs are needed for projects
+      // TODO: if filter push-down is successfully, re-analyze what RexInputsRefs are needed for
+      // projects
     }
 
     // Rebuild all projects to use new input refs
@@ -202,7 +236,8 @@ public class BeamBigQueryProjectRule extends RelOptRule {
     return relBuilder.build();
   }
 
-  private RexNode reconstructRexNode(RexNode node, RelDataType newInputs, Map<Integer, Integer> rexInputRefMapping) {
+  private RexNode reconstructRexNode(
+      RexNode node, RelDataType newInputs, Map<Integer, Integer> rexInputRefMapping) {
     if (node instanceof RexInputRef) {
       int oldInputIndex = ((RexInputRef) node).getIndex();
       int newInputIndex = rexInputRefMapping.get(oldInputIndex);
@@ -225,9 +260,15 @@ public class BeamBigQueryProjectRule extends RelOptRule {
   }
 
   private SqlNode convertRelToSql(RexProgram program, RexNode rex) {
-    IntFunction<SqlNode> field = i ->  new SqlIdentifier(program.getInputRowType().getFieldList().get(i).getName(), SqlParserPos.ZERO);
+    IntFunction<SqlNode> field =
+        i ->
+            new SqlIdentifier(
+                program.getInputRowType().getFieldList().get(i).getName(), SqlParserPos.ZERO);
     // TODO: Move this to Calcite BigQuery Dialect
-    SqlImplementor.SimpleContext context = new SqlImplementor.SimpleContext(BigQuerySqlDialectWithTypeTranslation.DEFAULT, field); // SqlDialect.DatabaseProduct.CALCITE.getDialect()
+    SqlImplementor.SimpleContext context =
+        new SqlImplementor.SimpleContext(
+            BigQuerySqlDialectWithTypeTranslation.DEFAULT,
+            field); // SqlDialect.DatabaseProduct.CALCITE.getDialect()
     SqlNode sqlNode = context.toSql(program, rex);
 
     String sql = sqlNode.toSqlString(BigQuerySqlDialectWithTypeTranslation.DEFAULT).getSql();

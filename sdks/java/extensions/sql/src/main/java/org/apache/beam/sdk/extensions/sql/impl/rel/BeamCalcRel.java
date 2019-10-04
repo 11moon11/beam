@@ -244,7 +244,8 @@ public class BeamCalcRel extends Calc implements BeamRelNode {
   @Override
   public BeamCostModel beamComputeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
     NodeStats inputStat = BeamSqlRelUtils.getNodeStats(this.input, mq);
-    return BeamCostModel.FACTORY.makeCost((double)rowType.getFieldCount(), (double)rowType.getFieldCount());
+    return BeamCostModel.FACTORY.makeCost(
+        (double) rowType.getFieldCount(), (double) rowType.getFieldCount());
   }
 
   public boolean isInputSortRelAndLimitOnly() {

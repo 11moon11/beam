@@ -134,15 +134,15 @@ public class BigQueryReadWriteIT implements Serializable {
 
     // SELECT c_integer FROM TEST
     // SELECT c_integer FROM TEST where c_tinyint=127
-    // SELECT c_integer-10 as out_int FROM TEST where c_tinyint=127 and (c_smallint=32767 and (c_integer=2147483647 or (c_float=1.0 and c_double=1.0 and c_integer-10=2147483637)))
+    // SELECT c_integer-10 as out_int FROM TEST where c_tinyint=127 and (c_smallint=32767 and
+    // (c_integer=2147483647 or (c_float=1.0 and c_double=1.0 and c_integer-10=2147483637)))
     // SELECT c_integer-10 as out_int FROM TEST where c_smallint=32767
-    String sqlQuery = "SELECT c_integer-10 as out_int FROM TEST where c_tinyint=127 and (c_smallint=32767 and (c_integer=2147483647 or (c_float=1.0 and c_double=1.0 and c_integer-10=2147483637)))";
-    PCollection<Row> output = BeamSqlRelUtils.toPCollection(readPipeline, sqlEnv.parseQuery(sqlQuery));
+    String sqlQuery =
+        "SELECT c_integer-10 as out_int FROM TEST where c_tinyint=127 and (c_smallint=32767 and (c_integer=2147483647 or (c_float=1.0 and c_double=1.0 and c_integer-10=2147483637)))";
+    PCollection<Row> output =
+        BeamSqlRelUtils.toPCollection(readPipeline, sqlEnv.parseQuery(sqlQuery));
 
-    PAssert.that(output)
-        .containsInAnyOrder(
-            row(output.getSchema(),
-                2147483637));
+    PAssert.that(output).containsInAnyOrder(row(output.getSchema(), 2147483637));
 
     readPipeline.run().waitUntilFinish(Duration.standardMinutes(5));
   }
