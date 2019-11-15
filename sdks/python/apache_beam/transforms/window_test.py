@@ -320,7 +320,8 @@ class WindowTest(unittest.TestCase):
   @attr('ValidatesRunner')
   def test_window_assignment_idempotency(self):
     with TestPipeline() as p:
-      pcoll = self.timestamped_key_values(p, 'key', 0, 2, 4)
+      pcoll = self.timestamped_key_values(p, 'key', 0, 1, 2, 3, 4, 5, 6)
+      # pylint: disable=abstract-class-instantiated
       result = (pcoll
                 | 'window' >> WindowInto(FixedWindows(2))
                 | 'same window' >> WindowInto(FixedWindows(2))
