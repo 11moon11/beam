@@ -46,6 +46,8 @@ dependencies {
   compile project(":sdks:java:core")
   compile project(":sdks:java:extensions:join-library")
   compile project(path: ":runners:direct-java", configuration: "shadow")
+  //compile project(path: ":runners:google-cloud-dataflow-java", configuration: "shadow")
+  compile project(":runners:google-cloud-dataflow-java")
   compile library.java.commons_csv
   compile library.java.vendored_calcite_1_20_0
   compile "com.alibaba:fastjson:1.2.49"
@@ -139,6 +141,19 @@ task runPojoExample(type: JavaExec) {
   main = "org.apache.beam.sdk.extensions.sql.example.BeamSqlPojoExample"
   classpath = sourceSets.main.runtimeClasspath
   args = ["--runner=DirectRunner"]
+}
+
+// Run SQL example to measure push-down impact
+task runPushDownExample(type: JavaExec) {
+  description = "Run SQL example for measuring push-down impact"
+  main = "org.apache.beam.sdk.extensions.sql.example.BigQueryPushDown"
+  classpath = sourceSets.main.runtimeClasspath
+  args = [
+          "--project=google.com:clouddfe",
+          "--gcpTempLocation=gs://test_kirillkozlov/temp",
+          "--tempLocation=gs://test_kirillkozlov/temp",
+          "--runner=DataflowRunner"
+  ]
 }
 
 task integrationTest(type: Test) {
