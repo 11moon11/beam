@@ -28,7 +28,6 @@ import org.apache.beam.sdk.annotations.Experimental;
 import org.apache.beam.sdk.extensions.sql.impl.BeamTableStatistics;
 import org.apache.beam.sdk.extensions.sql.meta.BeamSqlTableFilter;
 import org.apache.beam.sdk.extensions.sql.meta.DefaultTableFilter;
-import org.apache.beam.sdk.extensions.sql.meta.ProjectSupport;
 import org.apache.beam.sdk.extensions.sql.meta.SchemaBaseBeamTable;
 import org.apache.beam.sdk.extensions.sql.meta.Table;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryHelpers;
@@ -165,7 +164,7 @@ class BigQueryTable extends SchemaBaseBeamTable implements Serializable {
             .to(bqLocation));
   }
 
-  @Override
+  /*@Override
   public ProjectSupport supportsProjects() {
     return method.equals(Method.DIRECT_READ)
         ? ProjectSupport.WITHOUT_FIELD_REORDERING
@@ -179,7 +178,7 @@ class BigQueryTable extends SchemaBaseBeamTable implements Serializable {
     }
 
     return super.constructFilter(filter);
-  }
+  }*/
 
   private String generateRowRestrictions(Schema schema, List<RexNode> supported) {
     assert !supported.isEmpty();

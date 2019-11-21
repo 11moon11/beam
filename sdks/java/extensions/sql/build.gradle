@@ -151,7 +151,7 @@ task runPushDownExample(type: JavaExec) {
   args = [
           "--project=google.com:clouddfe",
           "--gcpTempLocation=gs://test_kirillkozlov/temp",
-          "--maxNumWorkers=1",
+          //"--maxNumWorkers=1",
           "--tempLocation=gs://test_kirillkozlov/temp",
           "--runner=DataflowRunner"
   ]

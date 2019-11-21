@@ -18,28 +18,19 @@ public class BigQueryPushDown {
     BeamSqlEnv sqlEnv = BeamSqlEnv.inMemory(new BigQueryTableProvider());
 
     String createTableStatement =
-        "CREATE EXTERNAL TABLE HACKER_NEWS( \n"
-            + "   title VARCHAR, \n"
-            + "   url VARCHAR, \n"
-            + "   text VARCHAR, \n"
-            + "   dead BOOLEAN, \n"
-            + "   `by` VARCHAR, \n"
-            + "   score INTEGER, \n"
-            + "   `time` INTEGER, \n"
-            + "   `timestamp` TIMESTAMP, \n"
-            + "   type VARCHAR, \n"
-            + "   id INTEGER, \n"
-            + "   parent INTEGER, \n"
-            + "   descendants INTEGER, \n"
-            + "   ranking INTEGER, \n"
-            + "   deleted BOOLEAN \n"
+        "CREATE EXTERNAL TABLE GIT_CONTENTS( \n"
+            + "   id VARCHAR, \n"
+            + "   size INTEGER, \n"
+            + "   content VARCHAR, \n"
+            + "   `binary` BOOLEAN, \n"
+            + "   copies INTEGER \n"
             + ") \n"
             + "TYPE 'bigquery' \n"
-            + "LOCATION 'bigquery-public-data:hacker_news.full' \n"
+            + "LOCATION 'bigquery-public-data:github_repos.contents' \n"
             + "TBLPROPERTIES '{ method: \"DIRECT_READ\" }'";
     sqlEnv.executeDdl(createTableStatement);
 
-    String selectTableStatement = "SELECT `by` as author, SUM(score) as total_score FROM HACKER_NEWS where type='story' group by `by` order by total_score desc limit 10";
+    String selectTableStatement = "SELECT id, size FROM GIT_CONTENTS where `binary`=false";
     BeamRelNode beamRelNode = sqlEnv.parseQuery(selectTableStatement);
     PCollection<Row> output = BeamSqlRelUtils.toPCollection(pipeline, beamRelNode);
 

@@ -363,16 +363,19 @@ class BeamModulePlugin implements Plugin<Project> {
     def aws_java_sdk_version = "1.11.519"
     def aws_java_sdk2_version = "2.5.71"
     def cassandra_driver_version = "3.6.0"
-    def generated_grpc_beta_version = "0.44.0"
-    def generated_grpc_ga_version = "1.43.0"
+    def generated_grpc_beta_version = "0.82.0"
+    def generated_grpc_ga_version = "1.81.0"
     def generated_grpc_dc_beta_version = "0.27.0-alpha"
-    def google_auth_version = "0.12.0"
+    def google_auth_version = "0.18.0"
+    def google_api_client_version = "1.30.3"
+    def google_http_clients_version = "1.32.1"
+    def google_oauth_clients_version = "1.29.2"
     def google_clients_version = "1.28.0"
     def google_cloud_bigdataoss_version = "1.9.16"
-    def google_cloud_core_version = "1.61.0"
+    def google_cloud_core_version = "1.91.3"
     def google_cloud_spanner_version = "1.6.0"
-    def grpc_version = "1.17.1"
-    def guava_version = "20.0"
+    def grpc_version = "1.24.1"
+    def guava_version = "28.1-jre"
     def hadoop_version = "2.7.3"
     def hamcrest_version = "2.1"
     def jackson_version = "2.9.10"
@@ -382,8 +385,8 @@ class BeamModulePlugin implements Plugin<Project> {
     def netty_version = "4.1.30.Final"
     def postgres_version = "42.2.2"
     def powermock_version = "2.0.2"
-    def proto_google_common_protos_version = "1.12.0"
-    def protobuf_version = "3.6.0"
+    def proto_google_common_protos_version = "1.17.0"
+    def protobuf_version = "3.7.1"
     def quickcheck_version = "0.8"
     def spark_version = "2.4.4"
     def spark_structured_streaming_version = "2.4.0"
@@ -434,33 +437,33 @@ class BeamModulePlugin implements Plugin<Project> {
         commons_lang3                               : "org.apache.commons:commons-lang3:3.6",
         commons_math3                               : "org.apache.commons:commons-math3:3.6.1",
         error_prone_annotations                     : "com.google.errorprone:error_prone_annotations:2.0.15",
-        gax_grpc                                    : "com.google.api:gax-grpc:1.38.0",
-        google_api_client                           : "com.google.api-client:google-api-client:$google_clients_version",
-        google_api_client_jackson2                  : "com.google.api-client:google-api-client-jackson2:$google_clients_version",
-        google_api_client_java6                     : "com.google.api-client:google-api-client-java6:$google_clients_version",
-        google_api_common                           : "com.google.api:api-common:1.7.0",
-        google_api_services_bigquery                : "com.google.apis:google-api-services-bigquery:v2-rev20181221-$google_clients_version",
-        google_api_services_clouddebugger           : "com.google.apis:google-api-services-clouddebugger:v2-rev20181114-$google_clients_version",
-        google_api_services_cloudresourcemanager    : "com.google.apis:google-api-services-cloudresourcemanager:v1-rev20181015-$google_clients_version",
-        google_api_services_dataflow                : "com.google.apis:google-api-services-dataflow:v1b3-rev20190927-$google_clients_version",
-        google_api_services_pubsub                  : "com.google.apis:google-api-services-pubsub:v1-rev20181213-$google_clients_version",
-        google_api_services_storage                 : "com.google.apis:google-api-services-storage:v1-rev20181109-$google_clients_version",
+        gax_grpc                                    : "com.google.api:gax-grpc:1.49.1",
+        google_api_client                           : "com.google.api-client:google-api-client:$google_api_client_version",
+        google_api_client_jackson2                  : "com.google.api-client:google-api-client-jackson2:$google_api_client_version",
+        google_api_client_java6                     : "com.google.api-client:google-api-client-java6:$google_api_client_version",
+        google_api_common                           : "com.google.api:api-common:1.8.1",
+        google_api_services_bigquery                : "com.google.apis:google-api-services-bigquery:v2-rev20190907-$google_api_client_version",
+        google_api_services_clouddebugger           : "com.google.apis:google-api-services-clouddebugger:v2-rev20191003-$google_api_client_version",
+        google_api_services_cloudresourcemanager    : "com.google.apis:google-api-services-cloudresourcemanager:v1-rev20191018-$google_api_client_version",
+        google_api_services_dataflow                : "com.google.apis:google-api-services-dataflow:v1b3-rev20190927-$google_api_client_version",
+        google_api_services_pubsub                  : "com.google.apis:google-api-services-pubsub:v1-rev20191001-$google_api_client_version",
+        google_api_services_storage                 : "com.google.apis:google-api-services-storage:v1-rev20190910-$google_api_client_version",
         google_auth_library_credentials             : "com.google.auth:google-auth-library-credentials:$google_auth_version",
         google_auth_library_oauth2_http             : "com.google.auth:google-auth-library-oauth2-http:$google_auth_version",
-        google_cloud_bigquery                       : "com.google.cloud:google-cloud-bigquery:$google_clients_version",
-        google_cloud_bigquery_storage               : "com.google.cloud:google-cloud-bigquerystorage:0.79.0-alpha",
-        google_cloud_bigtable_client_core           : "com.google.cloud.bigtable:bigtable-client-core:1.8.0",
+        google_cloud_bigquery                       : "com.google.cloud:google-cloud-bigquery:1.99.0",
+        google_cloud_bigquery_storage               : "com.google.cloud:google-cloud-bigquerystorage:0.117.0-beta",
+        google_cloud_bigtable_client_core           : "com.google.cloud.bigtable:bigtable-client-core:1.12.1",
         google_cloud_core                           : "com.google.cloud:google-cloud-core:$google_cloud_core_version",
         google_cloud_core_grpc                      : "com.google.cloud:google-cloud-core-grpc:$google_cloud_core_version",
         google_cloud_dataflow_java_proto_library_all: "com.google.cloud.dataflow:google-cloud-dataflow-java-proto-library-all:0.5.160304",
         google_cloud_datastore_v1_proto_client      : "com.google.cloud.datastore:datastore-v1-proto-client:1.6.0",
         google_cloud_spanner                        : "com.google.cloud:google-cloud-spanner:$google_cloud_spanner_version",
-        google_http_client                          : "com.google.http-client:google-http-client:$google_clients_version",
-        google_http_client_jackson                  : "com.google.http-client:google-http-client-jackson:$google_clients_version",
-        google_http_client_jackson2                 : "com.google.http-client:google-http-client-jackson2:$google_clients_version",
+        google_http_client                          : "com.google.http-client:google-http-client:$google_http_clients_version",
+        google_http_client_jackson                  : "com.google.http-client:google-http-client-jackson:1.29.2",
+        google_http_client_jackson2                 : "com.google.http-client:google-http-client-jackson2:1.29.2",
         google_http_client_protobuf                 : "com.google.http-client:google-http-client-protobuf:$google_clients_version",
-        google_oauth_client                         : "com.google.oauth-client:google-oauth-client:$google_clients_version",
-        google_oauth_client_java6                   : "com.google.oauth-client:google-oauth-client-java6:$google_clients_version",
+        google_oauth_client                         : "com.google.oauth-client:google-oauth-client:$google_oauth_clients_version",
+        google_oauth_client_java6                   : "com.google.oauth-client:google-oauth-client-java6:$google_oauth_clients_version",
         grpc_all                                    : "io.grpc:grpc-all:$grpc_version",
         grpc_auth                                   : "io.grpc:grpc-auth:$grpc_version",
         grpc_core                                   : "io.grpc:grpc-core:$grpc_version",
@@ -494,7 +497,7 @@ class BeamModulePlugin implements Plugin<Project> {
         kafka                                       : "org.apache.kafka:kafka_2.11:$kafka_version",
         kafka_clients                               : "org.apache.kafka:kafka-clients:$kafka_version",
         malhar_library                              : "org.apache.apex:malhar-library:$apex_malhar_version",
-        mockito_core                                : "org.mockito:mockito-core:3.0.0",
+        mockito_core                                : "org.mockito:mockito-core:3.1.0",
         nemo_compiler_frontend_beam                 : "org.apache.nemo:nemo-compiler-frontend-beam:$nemo_version",
         netty_handler                               : "io.netty:netty-handler:$netty_version",
         netty_tcnative_boringssl_static             : "io.netty:netty-tcnative-boringssl-static:2.0.17.Final",
@@ -729,7 +732,7 @@ class BeamModulePlugin implements Plugin<Project> {
       // configurations because they are never required to be shaded or become a
       // dependency of the output.
       def compileOnlyAnnotationDeps = [
-        "com.google.auto.value:auto-value-annotations:1.6.3",
+        "com.google.auto.value:auto-value-annotations:1.6.6",
         "com.google.auto.service:auto-service-annotations:1.0-rc6",
         "com.google.j2objc:j2objc-annotations:1.3",
         // These dependencies are needed to avoid error-prone warnings on package-info.java files,
