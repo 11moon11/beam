@@ -151,6 +151,7 @@ task runPushDownExample(type: JavaExec) {
   args = [
           "--project=google.com:clouddfe",
           "--gcpTempLocation=gs://test_kirillkozlov/temp",
+          "--maxNumWorkers=1",
           "--tempLocation=gs://test_kirillkozlov/temp",
           "--runner=DataflowRunner"
   ]
@@ -158,8 +159,8 @@ task runPushDownExample(type: JavaExec) {
 
 task integrationTest(type: Test) {
   group = "Verification"
-  def gcpProject = project.findProperty('gcpProject') ?: 'apache-beam-testing'
-  def gcsTempRoot = project.findProperty('gcsTempRoot') ?: 'gs://temp-storage-for-end-to-end-tests/'
+  def gcpProject = project.findProperty('gcpProject') ?: 'google.com:clouddfe'
+  def gcsTempRoot = project.findProperty('gcsTempRoot') ?: 'gs://test_kirillkozlov/'
 
   // Disable Gradle cache (it should not be used because the IT's won't run).
   outputs.upToDateWhen { false }
