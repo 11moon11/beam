@@ -47,6 +47,7 @@ import com.google.datastore.v1.Query;
 import com.google.datastore.v1.QueryResultBatch;
 import com.google.datastore.v1.RunQueryRequest;
 import com.google.datastore.v1.RunQueryResponse;
+import com.google.datastore.v1.Value;
 import com.google.datastore.v1.client.Datastore;
 import com.google.datastore.v1.client.DatastoreException;
 import com.google.datastore.v1.client.DatastoreFactory;
@@ -59,9 +60,12 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import org.apache.beam.repackaged.core.org.apache.commons.lang3.tuple.Pair;
 import org.apache.beam.sdk.PipelineRunner;
 import org.apache.beam.sdk.annotations.Experimental;
 import org.apache.beam.sdk.annotations.Experimental.Kind;
@@ -272,6 +276,10 @@ public class DatastoreV1 {
     /** Default bundle size of 64MB. */
     static final long DEFAULT_BUNDLE_SIZE_BYTES = 64L * 1024L * 1024L;
 
+    private static final String BUILTIN_INDEX_COUNT = "builtin_index_count";
+    private static final String PROPERTY_NAME = "property_name";
+    private static final String PROPERTY_TYPE = "property_type";
+
     /**
      * Maximum number of results to request per query.
      *
@@ -398,6 +406,34 @@ public class DatastoreV1 {
             "Datastore statistics for kind " + ourKind + " unavailable");
       }
       return batch.getEntityResults(0).getEntity();
+    }
+
+    private static List<Entity> getPropertyNameTypeStats(
+        String ourKind, @Nullable String namespace, Datastore datastore) throws DatastoreException {
+      Query.Builder queryBuilder = Query.newBuilder();
+      if (Strings.isNullOrEmpty(namespace)) {
+        queryBuilder.addKindBuilder().setName("__Stat_PropertyType_PropertyName_Kind__");
+      } else {
+        queryBuilder.addKindBuilder().setName("__Stat_Ns_PropertyType_PropertyName_Kind__");
+      }
+
+      queryBuilder.setFilter(makeFilter("kind_name", EQUAL, makeValue(ourKind).build()).build());
+
+      RunQueryRequest request = makeRequest(queryBuilder.build(), namespace);
+
+      long now = System.currentTimeMillis();
+      RunQueryResponse response = datastore.runQuery(request);
+      LOG.debug("Query for per-kind schema retrieval took {}ms", System.currentTimeMillis() - now);
+
+      QueryResultBatch batch = response.getBatch();
+      if (batch.getEntityResultsCount() == 0) {
+        throw new NoSuchElementException(
+            "Datastore statistics for kind " + ourKind + " unavailable");
+      }
+
+      return batch.getEntityResultsList().stream()
+          .map(EntityResult::getEntity)
+          .collect(Collectors.toList());
     }
 
     /**
@@ -621,6 +657,36 @@ public class DatastoreV1 {
       } catch (Exception e) {
         return -1;
       }
+    }
+
+    /** Returns a list of Tuples containing name and type for each field. */
+    public List<Pair<String, String>> getSchemaForKind(
+        PipelineOptions options, String ourKind, @Nullable String namespace) {
+      V1Options v1Options = V1Options.from(getProjectId(), getNamespace(), getLocalhost());
+      V1DatastoreFactory datastoreFactory = new V1DatastoreFactory();
+      Datastore datastore =
+          datastoreFactory.getDatastore(
+              options, v1Options.getProjectId(), v1Options.getLocalhost());
+
+      List<Entity> nameTypeStats;
+      try {
+        nameTypeStats = getPropertyNameTypeStats(ourKind, namespace, datastore);
+      } catch (DatastoreException e) {
+        throw new RuntimeException("An error has occurred when retrieving statistics fro Datastore kind: " + ourKind, e);
+      }
+      // TODO: we might want to return a Beam Schema instead, but not all DataStore types are
+      // supported by Beam.
+      // https://cloud.google.com/datastore/docs/concepts/stats
+      ImmutableList.Builder<Pair<String, String>> columnNameTypeTuple = ImmutableList.builder();
+      for (Entity entity : nameTypeStats) {
+        Map<String, Value> entityProperties = entity.getPropertiesMap();
+        Value name = entityProperties.get(PROPERTY_NAME);
+        Value type = entityProperties.get(PROPERTY_TYPE);
+        checkArgument(
+            name != null && type != null, "Failed to retrieve schema for provided DataStore kind.");
+        columnNameTypeTuple.add(Pair.of(name.getStringValue(), type.getStringValue()));
+      }
+      return columnNameTypeTuple.build();
     }
 
     @Override

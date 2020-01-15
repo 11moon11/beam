@@ -21,16 +21,21 @@ import static org.apache.beam.sdk.io.gcp.datastore.V1TestUtil.deleteAllEntities;
 import static org.apache.beam.sdk.io.gcp.datastore.V1TestUtil.getDatastore;
 import static org.apache.beam.sdk.io.gcp.datastore.V1TestUtil.makeAncestorKey;
 import static org.apache.beam.sdk.io.gcp.datastore.V1TestUtil.makeEntity;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 
 import com.google.datastore.v1.Entity;
 import com.google.datastore.v1.Key;
 import com.google.datastore.v1.Query;
 import com.google.datastore.v1.client.Datastore;
+import java.util.List;
 import java.util.UUID;
+import org.apache.beam.repackaged.core.org.apache.commons.lang3.tuple.Pair;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.gcp.options.GcpOptions;
 import org.apache.beam.sdk.io.gcp.datastore.V1TestUtil.UpsertMutationBuilder;
 import org.apache.beam.sdk.io.gcp.datastore.V1TestUtil.V1TestWriter;
+import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.testing.TestPipeline;
@@ -90,6 +95,18 @@ public class V1ReadIT {
 
     PAssert.thatSingleton(count).isEqualTo(numEntities);
     p.run();
+  }
+
+  @Test
+  public void testGetSchemaForKind() throws Exception {
+    DatastoreV1.Read read =
+        DatastoreIO.v1().read().withProjectId(project).withNamespace(options.getNamespace());
+    List<Pair<String, String>> columnNameTypeTuple =
+        read.getSchemaForKind(
+            options.as(PipelineOptions.class), options.getKind(), options.getNamespace());
+
+    assertNotNull(columnNameTypeTuple);
+    assertFalse(columnNameTypeTuple.isEmpty());
   }
 
   @Test
